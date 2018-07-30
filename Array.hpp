@@ -7,40 +7,56 @@
 #ifndef C_ARRAY_H
 #define C_ARRAY_H
 
-template <class T, size_t size>
+template <size_t size, class T>
 class Array
 {
 private:
     T * A;
 public:
     Array();
-    Array(const Array<T, size> &);
-    Array(Array<T, size> &&);
+    Array(const Array<size, T> &);
+    Array(Array<size, T> &&);
     Array(T *, size_t massize);
-    Array<T, size> & operator=(const Array<T, size> &);
-    Array<T, size> & operator=(Array<T, size> &&);
-    template<class U, size_t n>
-    friend Array<U, n> operator+(const Array<U, n> &,const  Array<U, n> &);
-    template<class U, size_t n>
-    friend Array<U, n> operator-(const Array<U, n> &,const  Array<U, n> &);
-    template<class U, size_t n>
-    friend Array<U, n> operator*(const Array<U, n> &,const  Array<U, n> &);
-    template<class U, size_t n>
-    friend Array<U, n> operator/(const Array<U, n> &,const  Array<U, n> &);
-    template<class U, size_t n>
-    friend Array<U, n> operator%(const Array<U, n> &,const  Array<U, n> &);
-    Array<T, size> & operator+=(const Array<T, size> &);
-    Array<T, size> & operator-=(const Array<T, size> &);
-    Array<T, size> & operator*=(const Array<T, size> &);
-    Array<T, size> & operator/=(const Array<T, size> &);
-    Array<T, size> & operator%=(const Array<T, size> &);
+    Array<size, T> & operator=(const Array<size, T> &);
+    Array<size, T> & operator=(Array<size, T> &&);
+    template<size_t n, class U>
+    friend Array<n, U> operator+(const Array<n, U> &,const  Array<n, U> &);
+    template<size_t n, class U, typename O>
+    friend Array<n, U> operator+(const Array<n, U> &,const O &);
+    template<size_t n, class U>
+    friend Array<n, U> operator-(const Array<n, U> &,const  Array<n, U> &);
+    template<size_t n, class U, typename O>
+    friend Array<n, U> operator-(const Array<n, U> &,const O &);
+    template<size_t n, class U>
+    friend Array<n, U> operator*(const Array<n, U> &,const  Array<n, U> &);
+    template<size_t n, class U, typename O>
+    friend Array<n, U> operator*(const Array<n, U> &,const O &);
+    template<size_t n, class U>
+    friend Array<n, U> operator/(const Array<n, U> &,const  Array<n, U> &);
+    template<size_t n, class U, typename O>
+    friend Array<n, U> operator/(const Array<n, U> &,const O &);
+    Array<size, T> & operator+=(const Array<size, T> &);
+    template<typename O>
+    Array<size, T> & operator+=(const O &);
+    Array<size, T> & operator-=(const Array<size, T> &);
+    template<typename O>
+    Array<size, T> & operator-=(const O &);
+    Array<size, T> & operator*=(const Array<size, T> &);
+    template<typename O>
+    Array<size, T> & operator*=(const O &);
+    Array<size, T> & operator/=(const Array<size, T> &);
+    template<typename O>
+    Array<size, T> & operator/=(const O &);
+    template<typename O>
+    //Array<size, T> apply_func(void func(O &));
     T & operator[](size_t i) { return A[i];}
-    template<class U, size_t n>
-    friend std::ostream & operator<<(std::ostream & out, const Array<U, n> &b);
+    template<size_t n, class U>
+    friend std::ostream & operator<<(std::ostream & out, const Array<n, U> &b);
     template<class U, size_t n, size_t k, size_t m>
-    friend Array<Array<U, m>, n> dot(const Array<Array<U, k>, n> &, const Array<Array<U, m>, k> &);
+    friend Array<n, Array<m, U>> dot(const Array<n, Array<k, U>> &, const Array<k, Array<m, U>> &);
+    // very later TODO: Strassen algorithm
     template<class U, size_t n, size_t m>
-    friend Array<Array<U, m>, n> T(const Array<Array<U, n>, m> &);
+    friend Array<n, Array<m, U>> T(const Array<m, Array<n, U>> &);
     ~Array();
 
     class iterator
@@ -73,9 +89,9 @@ class Array<Array<U, n>, m>
 */
 
 template<class U, size_t n, size_t m>
-Array<Array<U, m>, n> T(const Array<Array<U, n>, m> &b)
+Array<n, Array<m, U>> T(const Array<m, Array<n, U>> &b)
 {
-    Array<Array<U, m>, n> res;
+    Array<n, Array<m, U>> res;
     for (size_t i = 0; i < n; ++i)
         for (size_t j = 0; j < m; ++j)
             res.A[i].A[j] = b.A[j].A[i];
@@ -96,38 +112,39 @@ Array<Array<U, k>, m> Array<Array<U, n>, m>::dot(const Array<Array<U, k>, n> &b)
     return res;
 }
 */
-template <class T, size_t size>
-Array<T, size>::Array()
+template <size_t size, class T>
+Array<size, T>::Array()
 {
     A = new T[size];
 }
 
-template <class T, size_t size>
-Array<T, size>::Array(const Array<T, size> &b)
+template <size_t size, class T>
+Array<size, T>::Array(const Array<size, T> &b)
 {
     A = new T[size];
     for (size_t i = 0; i < size; ++i)
         A[i] = b.A[i];
 }
 
-template <class T, size_t size>
-Array<T, size>::Array(Array<T, size> &&b)
+template <size_t size, class T>
+Array<size, T>::Array(Array<size, T> &&b)
 {
     A = b.A;
-    b.A = new T[size];
+    b.A = NULL;
+    //b.A = new T[size];
     //test it well
 }
 
-template <class T, size_t size>
-Array<T, size>::Array(T * b, size_t massize)
+template <size_t size, class T>
+Array<size, T>::Array(T * b, size_t massize)
 {
     A = new T[size];
     for (size_t i = 0; i < massize; ++i)
         A[i] = b.A[i];
 }
 
-template <class T, size_t size>
-Array<T, size> & Array<T, size>::operator=(const Array<T, size> &b)
+template <size_t size, class T>
+Array<size, T> & Array<size, T>::operator=(const Array<size, T> &b)
 {
     delete[] A;
     A = new T[size];
@@ -136,120 +153,172 @@ Array<T, size> & Array<T, size>::operator=(const Array<T, size> &b)
     return *this;
 }
 
-template <class T, size_t size>
-Array<T, size> & Array<T, size>::operator=(Array<T, size> &&b)
+template <size_t size, class T>
+Array<size, T> & Array<size, T>::operator=(Array<size, T> &&b)
 {
     delete[] A;
     A = b.A;
-    b.A = new T[size];
+    b.A = NULL;
+    //b.A = new T[size]
     return *this;
 }
 
-template <class T, size_t size>
-Array<T, size> & Array<T, size>::operator+=(const Array<T, size> &b)
+template <size_t size, class T>
+Array<size, T> & Array<size, T>::operator+=(const Array<size, T> &b)
 {
     for (size_t i = 0; i < size; ++i)
         A[i] += b.A[i];
     return *this;
 }
 
-template <class T, size_t size>
-Array<T, size> & Array<T, size>::operator-=(const Array<T, size> &b)
+template <size_t size, class T> template <typename O>
+Array<size, T> & Array<size, T>::operator+=(const O &b)
+{
+    for (size_t i = 0; i < size; ++i)
+        A[i] += b;
+    return *this;
+}
+
+template <size_t size, class T>
+Array<size, T> & Array<size, T>::operator-=(const Array<size, T> &b)
 {
     for (size_t i = 0; i < size; ++i)
         A[i] -= b.A[i];
     return *this;
 }
 
-template <class T, size_t size>
-Array<T, size> & Array<T, size>::operator*=(const Array<T, size> &b)
+template <size_t size, class T> template <typename O>
+Array<size, T> & Array<size, T>::operator-=(const O &b)
+{
+    for (size_t i = 0; i < size; ++i)
+        A[i] -= b;
+    return *this;
+}
+
+template <size_t size, class T>
+Array<size, T> & Array<size, T>::operator*=(const Array<size, T> &b)
 {
     for (size_t i = 0; i < size; ++i)
         A[i] *= b.A[i];
     return *this;
 }
 
-template <class T, size_t size>
-Array<T, size> & Array<T, size>::operator/=(const Array<T, size> &b)
+template <size_t size, class T> template <typename O>
+Array<size, T> & Array<size, T>::operator*=(const O &b)
+{
+    for (size_t i = 0; i < size; ++i)
+        A[i] += b;
+    return *this;
+}
+
+template <size_t size, class T>
+Array<size, T> & Array<size, T>::operator/=(const Array<size, T> &b)
 {
     for (size_t i = 0; i < size; ++i)
         A[i] /= b.A[i];
     return *this;
 }
 
-template <class T, size_t size>
-Array<T, size> & Array<T, size>::operator%=(const Array<T, size> &b)
+template <size_t size, class T> template <typename O>
+Array<size, T> & Array<size, T>::operator/=(const O &b)
 {
     for (size_t i = 0; i < size; ++i)
-        A[i] %= b.A[i];
+        A[i] += b;
     return *this;
 }
 
-template <class U, size_t fsize>
-std::ostream & operator<<(std::ostream & out, const Array<U, fsize> &b)
+template <size_t n, class U>
+std::ostream & operator<<(std::ostream & out, const Array<n, U> &b)
 {
     out << "[";
-    for (size_t i = 0; i < fsize - 1; ++i)
+    for (size_t i = 0; i < n - 1; ++i)
         out << b.A[i] << " ";
-    return out << b.A[fsize - 1] << "]" << std::endl;
+    return out << b.A[n - 1] << "]" << std::endl;
 }
 
-template <class T, size_t size>
-Array<T, size>::~Array()
+template <size_t size, class T>
+Array<size, T>::~Array()
 {
     delete[] A;
 }
 
 
-template<class U, size_t fsize>
-Array<U, fsize> operator+(const Array<U, fsize> &a,const  Array<U, fsize> &b)
+template<size_t n, class U>
+Array<n, U> operator+(const Array<n, U> &a, const Array<n, U> &b)
 {
-    Array<U, fsize> res;
-    for (size_t i = 0; i < fsize; ++i)
+    Array<n, U> res;
+    for (size_t i = 0; i < n; ++i)
         res.A[i] = a.A[i] + b.A[i];
     return res;
 }
 
-template<class U, size_t fsize>
-Array<U, fsize> operator-(const Array<U, fsize> &a,const  Array<U, fsize> &b)
+template<size_t n, class U, typename O>
+Array<n, U> operator+(const Array<n, U> &a, const O &b)
 {
-    Array<U, fsize> res;
-    for (size_t i = 0; i < fsize; ++i)
+    Array<n, U> res;
+    for (size_t i = 0; i < n; ++i)
+        res.A[i] = a.A[i] + b;
+    return res;
+}
+
+template<size_t n, class U>
+Array<n, U> operator-(const Array<n, U> &a, const Array<n, U> &b)
+{
+    Array<n, U> res;
+    for (size_t i = 0; i < n; ++i)
         res.A[i] = a.A[i] - b.A[i];
     return res;
 }
 
-template<class U, size_t fsize>
-Array<U, fsize> operator*(const Array<U, fsize> &a,const  Array<U, fsize> &b)
+template<size_t n, class U, typename O>
+Array<n, U> operator-(const Array<n, U> &a, const O &b)
 {
-    Array<U, fsize> res;
-    for (size_t i = 0; i < fsize; ++i)
+    Array<n, U> res;
+    for (size_t i = 0; i < n; ++i)
+        res.A[i] = a.A[i] - b;
+    return res;
+}
+
+template<size_t n, class U>
+Array<n, U> operator*(const Array<n, U> &a, const Array<n, U> &b)
+{
+    Array<n, U> res;
+    for (size_t i = 0; i < n; ++i)
         res.A[i] = a.A[i] * b.A[i];
     return res;
 }
 
-template<class U, size_t fsize>
-Array<U, fsize> operator/(const Array<U, fsize> &a,const  Array<U, fsize> &b)
+template<size_t n, class U, typename O>
+Array<n, U> operator*(const Array<n, U> &a, const O &b)
 {
-    Array<U, fsize> res;
-    for (size_t i = 0; i < fsize; ++i)
+    Array<n, U> res;
+    for (size_t i = 0; i < n; ++i)
+        res.A[i] = a.A[i] * b;
+    return res;
+}
+
+template<size_t n, class U>
+Array<n, U> operator/(const Array<n, U> &a, const Array<n, U> &b)
+{
+    Array<n, U> res;
+    for (size_t i = 0; i < n; ++i)
         res.A[i] = a.A[i] / b.A[i];
     return res;
 }
 
-template<class U, size_t fsize>
-Array<U, fsize> operator%(const Array<U, fsize> &a,const  Array<U, fsize> &b)
+template<size_t n, class U, typename O>
+Array<n, U> operator/(const Array<n, U> &a, const O &b)
 {
-    Array<U, fsize> res;
-    for (size_t i = 0; i < fsize; ++i)
-        res.A[i] = a.A[i] % b.A[i];
+    Array<n, U> res;
+    for (size_t i = 0; i < n; ++i)
+        res.A[i] = a.A[i] / b;
     return res;
 }
 
 template<class U, size_t n, size_t k, size_t m>
-Array<Array<U, m>, n> dot(const Array<Array<U, k>, n> &a, const Array<Array<U, m>, k> &b)
+Array<n, Array<m, U>> dot(const Array<n, Array<k, U>> &a, const Array<k, Array<m, U>> &b)
 {
-    Array<Array<U, m>, n> res;
+    Array<n, Array<m, U>> res;
     for (size_t i = 0; i < n; ++i)
         for (size_t j = 0; j < m; ++j)
         {
@@ -259,6 +328,5 @@ Array<Array<U, m>, n> dot(const Array<Array<U, k>, n> &a, const Array<Array<U, m
         }
     return res;
 }
-
 
 #endif //C_ARRAY_H
