@@ -44,11 +44,13 @@ public:
     Array();
     Array(const Array<size, T1> &);
     Array(Array<size, T1> &&);
+    explicit Array(T1 (*generator)());
     Array(T1 *, size_t massize);
     Array<size, T1> & operator=(const Array<size, T1> &);
     Array<size, T1> & operator=(Array<size, T1> &&);
     template <typename O>
     Array<size, T1> & operator=(const O &);
+    void generate(T1 (*generator)());
     template<class O>
     Array<size, T1> operator+(const Array<size, O> &b) const { return operation(*this, b, add); }
     template<typename O>
@@ -84,6 +86,7 @@ public:
     template <typename O>
     Array<size, O> apply_func(O (*func)(const T1 &));
     T1 & operator[](size_t i) { return A[i];}
+    const T1 & operator[](size_t i) const { return A[i];}
     template<size_t n, class U>
     friend std::ostream & operator<<(std::ostream & out, const Array<n, U> &b);
     template<class U, size_t n, size_t k, size_t m>
@@ -131,10 +134,12 @@ public:
     Array();
     Array(const Array<m, Array<n, U>> &);
     Array(Array<m, Array<n, U>> &&);
+    explicit Array(U (*generator)());
     Array<m, Array<n, U>> & operator=(const Array<m, Array<n, U>> &);
     Array<m, Array<n, U>> & operator=(Array<m, Array<n, U>> &&);
     template <typename O>
     Array<m, Array<n, U>> & operator=(const O &);
+    void generate(U (*generator)());
     template <class O>
     Array<m, Array<n, U>> operator+(const Array<m, Array<n, O>> &b) const { return operation(*this, b, add); }
     template <typename O>
@@ -168,6 +173,7 @@ public:
     template<typename O>
     Array<m, Array<n, U>> & operator/=(const O &b) { return i_scalar_operation(*this, b, idiv); }
     Array<n, U> & operator[](size_t i) { return A[i];}
+    const Array<n, U> & operator[](size_t i) const { return A[i];}
     template <size_t fm, size_t fn, class fU>
     friend std::ostream & operator<<(std::ostream & out, const Array<fm, Array<fn, fU>> &b);
     Array<n, Array<m, U>> T();
@@ -183,10 +189,11 @@ Array<m, Array<k, U>> Array<m, Array<n, U>>::dot(const Array<n, Array<k, U>> &b)
 {
     Array<n, Array<m, U>> res;
     for (size_t i = 0; i < n; ++i)
-        for (size_t j = 0; j < m; ++j) {
-            res.A[i][j] = 0;
+        for (size_t j = 0; j < m; ++j)
+        {
+            res[i][j] = 0;
             for (size_t l = 0; l < k; ++l)
-                res.A[i][j] += A[i][l] * b.A[l][j];
+                res[i][j] += A[i][l] * b[l][j];
         }
     return res;
 }
@@ -195,9 +202,9 @@ template<size_t fm, size_t fn, class fU>
 std::ostream & operator<<(std::ostream & out, const Array<fm, Array<fn, fU>> &b)
 {
     out << '[';
-    for (size_t i = 0; i < fn - 1; ++i)
+    for (size_t i = 0; i < fm - 1; ++i)
         out << b.A[i] << std::endl << ' ';
-    return out << b.A[fn - 1] << ']' << std::endl;
+    return out << b.A[fm - 1] << ']' << std::endl;
 }
 
 
@@ -206,7 +213,7 @@ Array<size, Array<1, T1>> Array<size, T1>::T()
 {
     Array<size, Array<1, T1>> res;
     for (size_t i = 0; i < size; ++i)
-        res.A[i].A[0] = A[i];
+        res[i][0] = A[i];
     return res;
 }
 
@@ -216,7 +223,7 @@ Array<n, Array<m, U>> Array<m, Array<n, U>>::T()
     Array<n, Array<m, U>> res;
     for (size_t i = 0; i < n; ++i)
         for (size_t j = 0; j < m; ++j)
-            res.A[i][j] = A[j][i];
+            res[i][j] = A[j][i];
     return res;
 }
 
@@ -238,6 +245,14 @@ Array<m, Array<n, U>>::Array(const Array<m, Array<n, U>> &b)
     A = new Array<n, U>[m];
     for (size_t i = 0; i < m; ++i)
         A[i] = b.A[i];
+}
+
+template<size_t m, size_t n, class U>
+Array<m, Array<n, U>>::Array(U (*generator)())
+{
+    A = new Array<n, U>[m];
+    for (size_t i = 0; i < m; ++i)
+        A[i].generate(generator);
 }
 
 template <size_t size, class T1>
@@ -268,6 +283,14 @@ Array<size, T1>::Array(T1 * b, size_t massize)
     A = new T1[size];
     for (size_t i = 0; i < massize; ++i)
         A[i] = b[i];
+}
+
+template <size_t size, class T1>
+Array<size, T1>::Array(T1 (*generator)())
+{
+    A = new T1[size];
+    for (size_t i = 0; i < size; ++i)
+        A[i] = generator();
 }
 
 template<size_t m, size_t n, class U>
@@ -330,20 +353,35 @@ Array<m, Array<n, U>> & Array<m, Array<n, U>>::operator=(const O &b)
     return *this;
 }
 
+template <size_t size, class T1>
+void Array<size, T1>::generate(T1 (*generator)())
+{
+    for (size_t i = 0; i < size; ++i)
+        A[i] = generator();
+}
+
+template<size_t m, size_t n, class U>
+void Array<m, Array<n, U>>::generate(U (*generator)())
+{
+    for (size_t i = 0; i < m; ++i)
+        A[i].generate(generator);
+}
+
 template <size_t size, class T1> template <typename O>
 Array<size, O> Array<size, T1>::apply_func(O (*func)(const T1 &))
 {
-    Array<size, O> res = *this;
-    std::for_each(res.A, res.A + size, func);
+    Array<size, O> res;
+    for (size_t i = 0; i < size; ++i)
+        res[i] = func(A[i]);
     return res;
 }
 
 template<size_t m, size_t n, class U> template <typename O>
 Array<m, Array<n, O>> Array<m, Array<n, U>>::apply_func(O (*func)(const U &))
 {
-    Array<m, Array<n, O>> res = *this;
+    Array<m, Array<n, O>> res;
     for (size_t i = 0; i < m; ++i)
-        res.A[i] = res.A[i].apply_func(func);
+        res[i] = A[i].apply_func(func);
     return res;
 }
 
@@ -388,9 +426,9 @@ Array<n, Array<m, U>> dot(const Array<n, Array<k, U>> &a, const Array<k, Array<m
     for (size_t i = 0; i < n; ++i)
         for (size_t j = 0; j < m; ++j)
         {
-            res.A[i].A[j] = 0;
+            res[i][j] = 0;
             for (size_t l = 0; l < k; ++l)
-                res.A[i].A[j] += a.A[i].A[l] * b.A[l].A[j];
+                res[i][j] += a[i][l] * b[l][j];
         }
     return res;
 }
