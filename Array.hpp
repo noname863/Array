@@ -4,6 +4,7 @@
 //#include <initializer_list>
 #include <algorithm>
 #include <iostream>
+#include <type_traits>
 #ifndef C_ARRAY_H
 #define C_ARRAY_H
 
@@ -48,22 +49,22 @@ public:
     Array<size, T1> & operator=(Array<size, T1> &&);
     template <typename O>
     Array<size, T1> & operator=(const O &);
-    template<size_t n, class U, class O>
-    friend Array<n, U> operator+(const Array<n, U> &a, const Array<n, O> &b);
-    template<size_t n, class U, typename O>
-    friend Array<n, U> operator+(const Array<n, U> &a,const O &b);
-    template<size_t n, class U, class O>
-    friend Array<n, U> operator-(const Array<n, U> &a,const Array<n, O> &b);
-    template<size_t n, class U, typename O>
-    friend Array<n, U> operator-(const Array<n, U> &a,const O &b);
-    template<size_t n, class U, class O>
-    friend Array<n, U> operator*(const Array<n, U> &a,const Array<n, O> &b);
-    template<size_t n, class U, typename O>
-    friend Array<n, U> operator*(const Array<n, U> &a,const O &b);
-    template<size_t n, class U, class O>
-    friend Array<n, U> operator/(const Array<n, U> &a,const Array<n, O> &b);
-    template<size_t n, class U, typename O>
-    friend Array<n, U> operator/(const Array<n, U> &a,const O &b);
+    template<class O>
+    Array<size, T1> operator+(const Array<size, O> &b) const { return operation(*this, b, add); }
+    template<typename O>
+    Array<size, T1> operator+(const O &b) const { return scalar_operation(*this, b, add); }
+    template<class O>
+    Array<size, T1> operator-(const Array<size, O> &b) const { return operation(*this, b, sub); }
+    template<typename O>
+    Array<size, T1> operator-(const O &b) const { return scalar_operation(*this, b, sub); }
+    template<class O>
+    Array<size, T1> operator*(const Array<size, O> &b) const { return operation(*this, b, mul); }
+    template<typename O>
+    Array<size, T1> operator*(const O &b) const { return scalar_operation(*this, b, mul); }
+    template<class O>
+    Array<size, T1> operator/(const Array<size, O> &b) const { return operation(*this, b, div); }
+    template<typename O>
+    Array<size, T1> operator/(const O &b) const { return scalar_operation(*this, b, div); }
     template <class O>
     Array<size, T1> & operator+=(const Array<size, O> &b) { return i_operation(*this, b, iadd); }
     template<typename O>
@@ -134,22 +135,22 @@ public:
     Array<m, Array<n, U>> & operator=(Array<m, Array<n, U>> &&);
     template <typename O>
     Array<m, Array<n, U>> & operator=(const O &);
-    template<size_t fm, size_t fn, class fU, class O>
-    friend Array<fm, Array<fn, fU>> operator+(const Array<fm, Array<fn, fU>> &a, const Array<fm, Array<fn, O>> &b);
-    template<size_t fm, size_t fn, class fU, typename O>
-    friend Array<fm, Array<fn, fU>> operator+(const Array<fm, Array<fn, fU>> &a,const O &b);
-    template<size_t fm, size_t fn, class fU, class O>
-    friend Array<fm, Array<fn, fU>> operator-(const Array<fm, Array<fn, fU>> &a, const Array<fm, Array<fn, O>> &b);
-    template<size_t fm, size_t fn, class fU, typename O>
-    friend Array<fm, Array<fn, fU>> operator-(const Array<fm, Array<fn, fU>> &a,const O &b);
-    template<size_t fm, size_t fn, class fU, class O>
-    friend Array<fm, Array<fn, fU>> operator*(const Array<fm, Array<fn, fU>> &a, const Array<fm, Array<fn, O>> &b);
-    template<size_t fm, size_t fn, class fU, typename O>
-    friend Array<fm, Array<fn, fU>> operator*(const Array<fm, Array<fn, fU>> &a,const O &b);
-    template<size_t fm, size_t fn, class fU, class O>
-    friend Array<fm, Array<fn, fU>> operator/(const Array<fm, Array<fn, fU>> &a, const Array<fm, Array<fn, O>> &b);
-    template<size_t fm, size_t fn, class fU, typename O>
-    friend Array<fm, Array<fn, fU>> operator/(const Array<fm, Array<fn, fU>> &a,const O &b);
+    template <class O>
+    Array<m, Array<n, U>> operator+(const Array<m, Array<n, O>> &b) const { return operation(*this, b, add); }
+    template <typename O>
+    Array<m, Array<n, U>> operator+(const O &b) const { return scalar_operation(*this, b, add); }
+    template <class O>
+    Array<m, Array<n, U>> operator-(const Array<m, Array<n, O>> &b) const { return operation(*this, b, sub); }
+    template <typename O>
+    Array<m, Array<n, U>> operator-(const O &b) const { return scalar_operation(*this, b, sub); }
+    template <class O>
+    Array<m, Array<n, U>> operator*(const Array<m, Array<n, O>> &b) const { return operation(*this, b, mul); }
+    template <typename O>
+    Array<m, Array<n, U>> operator*(const O &b) const { return scalar_operation(*this, b, mul); }
+    template <class O>
+    Array<m, Array<n, U>> operator/(const Array<m, Array<n, O>> &b) const { return operation(*this, b, div); }
+    template <typename O>
+    Array<m, Array<n, U>> operator/(const O &b) const { return scalar_operation(*this, b, div); }
     template <class O>
     Array<m, Array<n, U>> & operator+=(const Array<m, Array<n, O>> &b) { return i_operation(*this, b, iadd); }
     template<typename O>
@@ -167,7 +168,7 @@ public:
     template<typename O>
     Array<m, Array<n, U>> & operator/=(const O &b) { return i_scalar_operation(*this, b, idiv); }
     Array<n, U> & operator[](size_t i) { return A[i];}
-    template<size_t fm, size_t fn, class fU>
+    template <size_t fm, size_t fn, class fU>
     friend std::ostream & operator<<(std::ostream & out, const Array<fm, Array<fn, fU>> &b);
     Array<n, Array<m, U>> T();
     template <typename O>
@@ -198,41 +199,6 @@ std::ostream & operator<<(std::ostream & out, const Array<fm, Array<fn, fU>> &b)
         out << b.A[i] << std::endl << ' ';
     return out << b.A[fn - 1] << ']' << std::endl;
 }
-
-template<size_t n, class U, class O>
-Array<n, U> operator+(const Array<n, U> &a, const Array<n, O> &b) { return operation(a, b, add); }
-template<size_t n, class U, typename O>
-Array<n, U> operator+(const Array<n, U> &a, const O &b) { return scalar_operation(a, b, add); }
-template<size_t n, class U, class O>
-Array<n, U> operator-(const Array<n, U> &a, const Array<n, O> &b) { return operation(a, b, sub); }
-template<size_t n, class U, typename O>
-Array<n, U> operator-(const Array<n, U> &a, const O &b) { return scalar_operation(a, b, sub); }
-template<size_t n, class U, class O>
-Array<n, U> operator*(const Array<n, U> &a, const Array<n, O> &b) { return operation(a, b, mul); }
-template<size_t n, class U, typename O>
-Array<n, U> operator*(const Array<n, U> &a, const O &b) { return scalar_operation(a, b, mul); }
-template<size_t n, class U, class O>
-Array<n, U> operator/(const Array<n, U> &a, const Array<n, O> &b) { return operation(a, b, div); }
-template<size_t n, class U, typename O>
-Array<n, U> operator/(const Array<n, U> &a, const O &b) { return scalar_operation(a, b, div); }
-
-
-template<size_t fm, size_t fn, class fU>
-Array<fm, Array<fn, fU>> operator+(const Array<fm, Array<fn, fU>> &a, const Array<fm, Array<fn, fU>> &b) { return operation(a, b, add); }
-template<size_t fm, size_t fn, class fU, typename O>
-Array<fm, Array<fn, fU>> operator+(const Array<fm, Array<fn, fU>> &a,const O &b) { return scalar_operation(a, b, add); }
-template<size_t fm, size_t fn, class fU>
-Array<fm, Array<fn, fU>> operator-(const Array<fm, Array<fn, fU>> &a, const Array<fm, Array<fn, fU>> &b) { return operation(a, b, sub); }
-template<size_t fm, size_t fn, class fU, typename O>
-Array<fm, Array<fn, fU>> operator-(const Array<fm, Array<fn, fU>> &a,const O &b) { return scalar_operation(a, b, sub); }
-template<size_t fm, size_t fn, class fU>
-Array<fm, Array<fn, fU>> operator*(const Array<fm, Array<fn, fU>> &a, const Array<fm, Array<fn, fU>> &b) { return operation(a, b, mul); }
-template<size_t fm, size_t fn, class fU, typename O>
-Array<fm, Array<fn, fU>> operator*(const Array<fm, Array<fn, fU>> &a,const O &b) { return scalar_operation(a, b, mul); }
-template<size_t fm, size_t fn, class fU>
-Array<fm, Array<fn, fU>> operator/(const Array<fm, Array<fn, fU>> &a, const Array<fm, Array<fn, fU>> &b) { return operation(a, b, div); }
-template<size_t fm, size_t fn, class fU, typename O>
-Array<fm, Array<fn, fU>> operator/(const Array<fm, Array<fn, fU>> &a,const O &b) { return scalar_operation(a, b, div); }
 
 
 template<size_t size, class T1>
