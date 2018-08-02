@@ -89,8 +89,6 @@ public:
     const T1 & operator[](size_t i) const { return A[i];}
     template<size_t n, class U>
     friend std::ostream & operator<<(std::ostream & out, const Array<n, U> &b);
-    template<class U, size_t n, size_t k, size_t m>
-    friend Array<n, Array<m, U>> dot(const Array<n, Array<k, U>> &, const Array<k, Array<m, U>> &);
     // very later TODO: Strassen algorithm
     Array<size, Array<1, T1>> T();
     ~Array();
@@ -128,7 +126,8 @@ class Array<m, Array<n, U>>
     friend Array<k, G> & i_operation(Array<k, G> &, const Array<k, O> &, G & (*func)(G &, const O &));
     template<size_t k, class G, typename O>
     friend Array<k, G> & i_scalar_operation(Array<k, G> &, const O &, G & (*func)(G &, const O &));
-
+    struct skip_init{};
+    Array(skip_init) {}
 public:
     constexpr static unsigned int size_ = m;
     Array();
@@ -180,12 +179,13 @@ public:
     template <typename O>
     Array<m, Array<n, O>> apply_func(O (*func)(const U &));
     template <size_t k>
-    Array<m, Array<k, U>> dot(const Array<n, Array<k, U>> &);
-
+    Array<m, Array<k, U>> easy_dot(const Array<n, Array<k, U>> &);
+    template<size_t l, size_t k>
+    Array<l, Array<k, U>> submatrix(size_t x1, size_t x2) const;
 };
 
 template<size_t m, size_t n, class U> template <size_t k>
-Array<m, Array<k, U>> Array<m, Array<n, U>>::dot(const Array<n, Array<k, U>> &b)
+Array<m, Array<k, U>> Array<m, Array<n, U>>::easy_dot(const Array<n, Array<k, U>> &b)
 {
     Array<n, Array<m, U>> res;
     for (size_t i = 0; i < n; ++i)
@@ -193,7 +193,7 @@ Array<m, Array<k, U>> Array<m, Array<n, U>>::dot(const Array<n, Array<k, U>> &b)
         {
             res[i][j] = 0;
             for (size_t l = 0; l < k; ++l)
-                res[i][j] += A[i][l] * b[l][j];
+                res[i][j] += this->A[i][l] * b[l][j];
         }
     return res;
 }
@@ -419,8 +419,29 @@ Array<n, U> scalar_operation(const Array<n, U> &a, const O &b, U (*func)(const U
     return res;
 }
 
+template<size_t m, size_t n, class U> template<size_t l, size_t k>
+Array<l, Array<k, U>> Array<m, Array<n, U>>::submatrix(size_t x1, size_t x2) const
+{
+    Array<l, Array<k, U>> res;
+    size_t i = 0;
+    if ((l + x1 <= m) && (k + x2 <= n))
+        for (; i < l; ++i)
+            res[i] = Array<k, U>((*(U**)(this->A + x1 + i) + x2), k);
+    else
+    {
+        for (; i + x1 < m; ++i)
+            res[i] = Array<k, U>((*(U**)(this->A + x1 + i) + x2), n - x2);
+        for (; i < l; ++i)
+            res[i] = 0;
+        for (i = 0; i < l; ++i)
+            for (size_t j = n - x2; j < k; ++j)
+                res[i][j] = 0;
+    }
+    return res;
+}
+
 template<class U, size_t n, size_t k, size_t m>
-Array<n, Array<m, U>> dot(const Array<n, Array<k, U>> &a, const Array<k, Array<m, U>> &b)
+Array<n, Array<m, U>> easy_dot(const Array<n, Array<k, U>> &a, const Array<k, Array<m, U>> &b)
 {
     Array<n, Array<m, U>> res;
     for (size_t i = 0; i < n; ++i)
@@ -430,6 +451,49 @@ Array<n, Array<m, U>> dot(const Array<n, Array<k, U>> &a, const Array<k, Array<m
             for (size_t l = 0; l < k; ++l)
                 res[i][j] += a[i][l] * b[l][j];
         }
+    return res;
+}
+
+template<class U, size_t n, size_t k, size_t m>
+Array<n, Array<m, U>> dot(const Array<n, Array<k, U>> &a, const Array<k, Array<m, U>> &b)
+{
+    constexpr bool is_small = ((n * k < 4096) && (k * n < 4096) && (n * m < 4096));
+    if (is_small)
+        return easy_dot(a, b);
+    auto a11 = a.submatrix<(n>>1)+n&1,(k>>1)+k&1>(0, 0);
+    auto a12 = a.submatrix<(n>>1)+n&1,(k>>1)+k&1>((n>>1)+n&1, 0);
+    auto a21 = a.submatrix<(n>>1)+n&1,(k>>1)+k&1>(0, (k>>1)+k&1);
+    auto a22 = a.submatrix<(n>>1)+n&1,(k>>1)+k&1>((n>>1)+n&1, (k>>1)+k&1);
+    auto b11 = b.submatrix<(k>>1)+k&1,(m>>1)+m&1>(0, 0);
+    auto b12 = b.submatrix<(k>>1)+k&1,(m>>1)+m&1>((k>>1)+k&1, 0);
+    auto b21 = b.submatrix<(k>>1)+k&1,(m>>1)+m&1>(0, (m>>1)+m&1);
+    auto b22 = b.submatrix<(k>>1)+k&1,(m>>1)+m&1>((k>>1)+k&1, (m>>1)+m&1);
+    auto p1 = dot(a11 + a22, b11 + b22);
+    auto p2 = dot(a21 + a22, b11);
+    auto p3 = dot(a11, b12 + b22);
+    auto p4 = dot(a22, b21 - b11);
+    auto p5 = dot(a11 + a12, b22);
+    auto p6 = dot(a21 - a11, b11 - b12);
+    auto p7 = dot(a12 - a22, b21 + b22);
+    Array<n, Array<m, U>> res;
+    size_t j;
+    size_t i = 0;
+    for (; i < (n>>1)+n&1; ++i)
+    {
+        j = 0;
+        for (; j < (m>>1)+m&1; ++j)
+            res[i][j] = p1[i][j] + p4[i][j] - p5[i][j] + p7[i][j];
+        for (; j < m; ++j)
+            res[i][j] = p3[i][j] + p5[i][j];
+    }
+    for (; i < n; ++i)
+    {
+        j = 0;
+        for (; j < (m>>1)+m&1; ++j)
+            res[i][j] = p2[i][j] + p4[i][j];
+        for (; j < m; ++j)
+            res[i][j] = p1[i][j] - p2[i][j] + p3[i][j] + p6[i][j];
+    }
     return res;
 }
 
