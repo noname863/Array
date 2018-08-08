@@ -36,7 +36,9 @@ struct type_pack<T1, Types...>
     constexpr static size_t len = type_pack<Types...>::len + 1;
     template <typename... second_Types>
     using type_cat = type_pack<T1, Types..., second_Types...>;
-    using to_list = list<Types...>;
+    template <typename... second_Types>
+    using r_type_cat = type_pack<second_Types..., T1, Types...>;
+    using to_list = list<T1, Types...>;
     template <size_t num>
     using get = typename type_get<type_pack<T1, Types...>, num>::value;
 };
@@ -65,6 +67,7 @@ class list<T1, Types...>
     char c[sum_of_sizeof<type_pack<T1, Types...>::len, T1, Types...>::value];
 public:
     static void init(char * s) { new ((T1*)s) T1; list<Types...>::init(s + sizeof(T1));}
+    constexpr static size_t len = type_pack<T1, Types...>::len;
     list() {list<T1, Types...>::init(c);}
     template <size_t num>
     using get_type = typename type_pack<T1, Types...>::template get<num>;
