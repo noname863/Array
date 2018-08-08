@@ -93,25 +93,38 @@ public:
 
     Array<size, Array<1, T1>> T();
     ~Array();
-
     class iterator
     {
-    private:
+    protected:
         T1 * pos;
-        explicit iterator(T1 * ptr) {pos = ptr;}
     public:
+        explicit iterator(T1 * ptr) {pos = ptr;}
         iterator(const iterator &iter) {this->pos = iter.pos;}
         iterator & operator++() {++pos; return *this;}
         iterator operator++(int) {iterator copy(*this); ++pos; return copy;}
         iterator & operator--() {--pos; return *this;}
         iterator operator--(int) {iterator copy(*this); --pos; return copy;}
-        iterator operator*() {return *pos;}
+        T1 & operator*() const {return *pos;}
         iterator & operator+=(int i) {pos += i; return *this;}
         iterator & operator-=(int i) {pos -= i; return *this;}
-        friend iterator operator+(iterator a, int b) {return iterator(a.pos + b);}
-        friend iterator operator-(iterator a, int b) {return iterator(a.pos - b);}
-        friend int operator-(iterator a, iterator b) {return (int)a.pos - (int)b.pos;}
+        friend iterator operator+(const iterator &a, int b) {return iterator(a.pos + b);}
+        friend iterator operator-(const iterator &a, int b) {return iterator(a.pos - b);}
+        friend bool operator==(const iterator &a, const iterator &b) {return a.pos == b.pos;}
+        friend bool operator!=(const iterator &a, const iterator &b) {return a.pos != b.pos;}
+        friend int operator-(const iterator &a, const iterator &b) {return (int)a.pos - (int)b.pos;}
     };
+
+    class citerator : public iterator
+    {
+    public:
+        explicit citerator(T1 * ptr) : iterator(ptr) {}
+        T1 operator*() {return *iterator::pos;}
+    };
+    iterator begin() {return iterator(A);}
+    iterator end() {return iterator(A + size);}
+    citerator begin() const { return citerator(A); }
+    citerator end() const {return citerator(A + size);}
+
 };
 
 
