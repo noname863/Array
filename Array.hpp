@@ -94,24 +94,24 @@ public:
     Array<size, Array<1, T1>> T();
     ~Array();
     class iterator
-    {
-    protected:
-        T1 * pos;
-    public:
-        explicit iterator(T1 * ptr) {pos = ptr;}
-        iterator(const iterator &iter) {this->pos = iter.pos;}
-        iterator & operator++() {++pos; return *this;}
-        iterator operator++(int) {iterator copy(*this); ++pos; return copy;}
-        iterator & operator--() {--pos; return *this;}
-        iterator operator--(int) {iterator copy(*this); --pos; return copy;}
-        T1 & operator*() const {return *pos;}
-        iterator & operator+=(int i) {pos += i; return *this;}
-        iterator & operator-=(int i) {pos -= i; return *this;}
-        friend iterator operator+(const iterator &a, int b) {return iterator(a.pos + b);}
-        friend iterator operator-(const iterator &a, int b) {return iterator(a.pos - b);}
-        friend bool operator==(const iterator &a, const iterator &b) {return a.pos == b.pos;}
-        friend bool operator!=(const iterator &a, const iterator &b) {return a.pos != b.pos;}
-        friend int operator-(const iterator &a, const iterator &b) {return (int)a.pos - (int)b.pos;}
+        {
+        protected:
+            T1 * pos;
+        public:
+            explicit iterator(T1 * ptr) {pos = ptr;}
+            iterator(const iterator &iter) {this->pos = iter.pos;}
+            iterator & operator++() {++pos; return *this;}
+            iterator operator++(int) {iterator copy(*this); ++pos; return copy;}
+            iterator & operator--() {--pos; return *this;}
+            iterator operator--(int) {iterator copy(*this); --pos; return copy;}
+            T1 & operator*() const {return *pos;}
+            iterator & operator+=(int i) {pos += i; return *this;}
+            iterator & operator-=(int i) {pos -= i; return *this;}
+            friend iterator operator+(const iterator &a, int b) {return iterator(a.pos + b);}
+            friend iterator operator-(const iterator &a, int b) {return iterator(a.pos - b);}
+            friend bool operator==(const iterator &a, const iterator &b) {return a.pos == b.pos;}
+            friend bool operator!=(const iterator &a, const iterator &b) {return a.pos != b.pos;}
+            friend int operator-(const iterator &a, const iterator &b) {return (int)a.pos - (int)b.pos;}
     };
 
     class citerator : public iterator
@@ -200,6 +200,36 @@ public:
     Array<m, Array<k, U>> dot(const Array<n, Array<k, U>> &b) const;
     template<size_t l, size_t k>
     Array<l, Array<k, U>> submatrix(size_t x1, size_t x2) const;
+    class iterator
+    {
+    protected:
+        Array<n, U> * pos;
+    public:
+        explicit iterator(Array<n, U> * ptr) {pos = ptr;}
+        iterator(const iterator &iter) {this->pos = iter.pos;}
+        iterator & operator++() {++pos; return *this;}
+        iterator operator++(int) {iterator copy(*this); ++pos; return copy;}
+        iterator & operator--() {--pos; return *this;}
+        iterator operator--(int) {iterator copy(*this); --pos; return copy;}
+        Array<n, U> & operator*() const {return *pos;}
+        iterator & operator+=(int i) {pos += i; return *this;}
+        iterator & operator-=(int i) {pos -= i; return *this;}
+        friend iterator operator+(const iterator &a, int b) {return iterator(a.pos + b);}
+        friend iterator operator-(const iterator &a, int b) {return iterator(a.pos - b);}
+        friend bool operator==(const iterator &a, const iterator &b) {return a.pos == b.pos;}
+        friend bool operator!=(const iterator &a, const iterator &b) {return a.pos != b.pos;}
+        friend int operator-(const iterator &a, const iterator &b) {return (int)a.pos - (int)b.pos;}
+    };
+    class citerator : public iterator
+    {
+    public:
+        explicit citerator(Array<n, U> * ptr) : iterator(ptr) {}
+        Array<n, U> operator*() {return *iterator::pos;}
+    };
+    iterator begin() {return iterator(A);}
+    iterator end() {return iterator(A + m);}
+    citerator begin() const { return citerator(A); }
+    citerator end() const {return citerator(A + m);}
 };
 
 template<size_t m, size_t n, class U> template <size_t k>
