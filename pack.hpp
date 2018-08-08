@@ -1,7 +1,7 @@
 //
 // Created by Pavel on 07.08.2018.
 //
-
+#include <cstring>
 #ifndef PACK_HPP
 #define PACK_HPP
 
@@ -15,7 +15,11 @@ template <class T, T... values>
 struct pack{};
 
 template<typename... Types>
-class list {};
+class list
+{
+public:
+    static void init(char * s) {}
+};
 
 template<typename... Types>
 struct type_pack
@@ -60,10 +64,12 @@ class list<T1, Types...>
 {
     char c[sum_of_sizeof<type_pack<T1, Types...>::len, T1, Types...>::value];
 public:
-    template <size_t num>
-    typename type_pack<T1, Types...>::template get<num> & get() { return *(typename type_pack<T1, Types...>::template get<num>*)(c + sum_of_sizeof<num, T1, Types...>::value); }
+    static void init(char * s) { new ((T1*)s) T1; list<Types...>::init(s + sizeof(T1));}
+    list() {list<T1, Types...>::init(c);}
     template <size_t num>
     using get_type = typename type_pack<T1, Types...>::template get<num>;
+    template <size_t num>
+    get_type<num> & get() { return *(get_type<num>*)(c + sum_of_sizeof<num, T1, Types...>::value); }
 };
 
 template <class T, T first, T... values>
