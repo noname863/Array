@@ -5,6 +5,8 @@
 #include <algorithm>
 #include <iostream>
 #include <type_traits>
+#include <tuple>
+#include <utility>
 #ifndef C_ARRAY_H
 #define C_ARRAY_H
 
@@ -25,7 +27,6 @@ U mul(const U &a, const O &b){ return a * b; }
 template <class U, class O>
 U div(const U &a, const O &b){ return a / b; }
 
-
 template <size_t size, class T1>
 class Array
 {
@@ -40,12 +41,14 @@ private:
     template<size_t n, class U, typename O>
     friend Array<n, U> & i_scalar_operation(Array<n, U> &, const O &, U & (*func)(U &, const O &));
 public:
-    constexpr static unsigned int size_ = size;
+    constexpr static std::tuple<size_t> shape = std::make_tuple(size);
     Array();
     Array(const Array<size, T1> &);
     Array(Array<size, T1> &&);
     explicit Array(T1 (*generator)());
     Array(T1 *, size_t massize);
+    template <typename O>
+    Array(const O &);
     Array<size, T1> & operator=(const Array<size, T1> &);
     Array<size, T1> & operator=(Array<size, T1> &&);
     template <typename O>
@@ -143,11 +146,13 @@ class Array<m, Array<n, U>>
     struct skip_init{};
     Array(skip_init) {}
 public:
-    constexpr static unsigned int size_ = m;
+    constexpr static auto shape = std::tuple_cat(std::make_tuple(m), Array<n, U>::shape);
     Array();
     Array(const Array<m, Array<n, U>> &);
     Array(Array<m, Array<n, U>> &&);
     explicit Array(U (*generator)());
+    template <typename O>
+    Array(const O &);
     Array<m, Array<n, U>> & operator=(const Array<m, Array<n, U>> &);
     Array<m, Array<n, U>> & operator=(Array<m, Array<n, U>> &&);
     template <typename O>
@@ -341,14 +346,6 @@ Array<m, Array<n, U>>::Array(const Array<m, Array<n, U>> &b)
         A[i] = b.A[i];
 }
 
-template<size_t m, size_t n, class U>
-Array<m, Array<n, U>>::Array(U (*generator)())
-{
-    A = new Array<n, U>[m];
-    for (size_t i = 0; i < m; ++i)
-        A[i].generate(generator);
-}
-
 template <size_t size, class T1>
 Array<size, T1>::Array(const Array<size, T1> &b)
 {
@@ -356,6 +353,7 @@ Array<size, T1>::Array(const Array<size, T1> &b)
     for (size_t i = 0; i < size; ++i)
         A[i] = b.A[i];
 }
+
 
 template<size_t m, size_t n, class U>
 Array<m, Array<n, U>>::Array(Array<m, Array<n, U>> &&b)
@@ -385,6 +383,29 @@ Array<size, T1>::Array(T1 (*generator)())
     A = new T1[size];
     for (size_t i = 0; i < size; ++i)
         A[i] = generator();
+}
+
+
+template<size_t m, size_t n, class U>
+Array<m, Array<n, U>>::Array(U (*generator)())
+{
+    A = new Array<n, U>[m];
+    for (size_t i = 0; i < m; ++i)
+        A[i].generate(generator);
+}
+
+template <size_t size, class T1> template <typename O>
+Array<size, T1>::Array(const O &b)
+{
+    A = new T1[size];
+    *this = b;
+}
+
+template<size_t m, size_t n, class U> template <typename O>
+Array<m, Array<n, U>>::Array(const O &b)
+{
+    A = new Array<n, U>[m];
+    *this = b;
 }
 
 template<size_t m, size_t n, class U>
