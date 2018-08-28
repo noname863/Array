@@ -41,7 +41,7 @@ private:
     template<size_t n, class U, typename O>
     friend Array<n, U> & i_scalar_operation(Array<n, U> &, const O &, U & (*func)(U &, const O &));
 public:
-    constexpr static std::tuple<size_t> shape = std::make_tuple(size);
+    constexpr static auto shape = std::make_tuple(size);
     Array();
     Array(const Array<size, T1> &);
     Array(Array<size, T1> &&);
@@ -92,8 +92,8 @@ public:
     const T1 & operator[](size_t i) const { return A[i];}
     template<size_t n, class U>
     friend std::ostream & operator<<(std::ostream & out, const Array<n, U> &b);
-    // very later TODO: Strassen algorithm
-
+    void write(std::ostream &) const;
+    void read(std::istream &);
     Array<size, Array<1, T1>> T();
     ~Array();
     class iterator
@@ -176,19 +176,19 @@ public:
     Array<m, Array<n, U>> operator/(const O &b) const { return scalar_operation(*this, b, div); }
     template <class O>
     Array<m, Array<n, U>> & operator+=(const Array<m, Array<n, O>> &b) { return i_operation(*this, b, iadd); }
-    template<typename O>
+    template <typename O>
     Array<m, Array<n, U>> & operator+=(const O &b) { return i_scalar_operation(*this, b, iadd); }
     template <class O>
     Array<m, Array<n, U>> & operator-=(const Array<m, Array<n, O>> &b) { return i_operation(*this, b, isub); }
-    template<typename O>
+    template <typename O>
     Array<m, Array<n, U>> & operator-=(const O &b) { return i_scalar_operation(*this, b, isub); }
     template <class O>
     Array<m, Array<n, U>> & operator*=(const Array<m, Array<n, O>> &b) { return i_operation(*this, b, imul); }
-    template<typename O>
+    template <typename O>
     Array<m, Array<n, U>> & operator*=(const O &b) { return i_scalar_operation(*this, b, imul); }
     template <class O>
     Array<m, Array<n, U>> & operator/=(const Array<m, Array<n, O>> &b) { return i_operation(*this, b, idiv); }
-    template<typename O>
+    template <typename O>
     Array<m, Array<n, U>> & operator/=(const O &b) { return i_scalar_operation(*this, b, idiv); }
     Array<n, U> & operator[](size_t i) { return A[i];}
     const Array<n, U> & operator[](size_t i) const { return A[i];}
@@ -199,12 +199,14 @@ public:
     Array<m, Array<n, O>> apply_func(O (*func)(const U &));
     template <size_t k>
     Array<m, Array<k, U>> easy_dot(const Array<n, Array<k, U>> &) const;
-    template<class O, size_t l, size_t k, size_t p>
+    template <class O, size_t l, size_t k, size_t p>
     friend Array<l, Array<p, O>> dot(const Array<l, Array<k, O>> &a, const Array<k, Array<p, O>> &b);
     template <size_t k>
     Array<m, Array<k, U>> dot(const Array<n, Array<k, U>> &b) const;
-    template<size_t l, size_t k>
+    template <size_t l, size_t k>
     Array<l, Array<k, U>> submatrix(size_t x1, size_t x2) const;
+    void write(std::ostream &) const;
+    void read(std::istream &);
     class iterator
     {
     protected:
@@ -524,6 +526,30 @@ Array<n, U> operation(const Array<n, U> &a, const Array<n, O> &b, U (*func)(cons
         res.A[i] = func(a.A[i], b.A[i]);
     return res;
 }
+template <size_t n, class T>
+void Array<n, T>::write(std::ostream &out) const
+{
+    out.write((char*)A, n * sizeof(A[0]));
+}
+
+template <size_t n, class T>
+void Array<n, T>::read(std::istream &in)
+{
+    in.read((char *)A, n * sizeof(A[0]));
+}
+
+template<size_t m, size_t n, class U>
+void Array<m, Array<n, U>>::write(std::ostream &out) const
+{
+    std::for_each(begin(), end(), [&out](const Array<n, U> &a){ a.write(out); });
+}
+
+template<size_t m, size_t n, class U>
+void Array<m, Array<n, U>>::read(std::istream &in)
+{
+    std::for_each(begin(), end(), [&in](Array<n, U> &a){ a.read(in); });
+}
+
 
 template<size_t n, class U, typename O>
 Array<n, U> scalar_operation(const Array<n, U> &a, const O &b, U (*func)(const U &, const O &))
