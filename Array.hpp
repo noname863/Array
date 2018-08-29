@@ -94,7 +94,7 @@ public:
     friend std::ostream & operator<<(std::ostream & out, const Array<n, U> &b);
     void write(std::ostream &) const;
     void read(std::istream &);
-    Array<size, Array<1, T1>> T();
+    Array<size, Array<1, T1>> T() const;
     ~Array();
     class iterator
         {
@@ -194,7 +194,7 @@ public:
     const Array<n, U> & operator[](size_t i) const { return A[i];}
     template <size_t fm, size_t fn, class fU>
     friend std::ostream & operator<<(std::ostream & out, const Array<fm, Array<fn, fU>> &b);
-    Array<n, Array<m, U>> T();
+    Array<n, Array<m, U>> T() const;
     template <typename O>
     Array<m, Array<n, O>> apply_func(O (*func)(const U &));
     template <size_t k>
@@ -242,12 +242,12 @@ public:
 template<size_t m, size_t n, class U> template <size_t k>
 Array<m, Array<k, U>> Array<m, Array<n, U>>::easy_dot(const Array<n, Array<k, U>> &b) const
 {
-    Array<n, Array<m, U>> res;
-    for (size_t i = 0; i < n; ++i)
-        for (size_t j = 0; j < m; ++j)
+    Array<m, Array<k, U>> res;
+    for (size_t i = 0; i < m; ++i)
+        for (size_t j = 0; j < k; ++j)
         {
             res[i][j] = 0;
-            for (size_t l = 0; l < k; ++l)
+            for (size_t l = 0; l < n; ++l)
                 res[i][j] += this->A[i][l] * b[l][j];
         }
     return res;
@@ -303,14 +303,15 @@ template<size_t fm, size_t fn, class fU>
 std::ostream & operator<<(std::ostream & out, const Array<fm, Array<fn, fU>> &b)
 {
     out << '[';
-    for (size_t i = 0; i < fm - 1; ++i)
-        out << b.A[i] << std::endl << ' ';
-    return out << b.A[fm - 1] << ']' << std::endl;
+    fU * i = b.A;
+    for (fU * e = b.A + fm - 1; (size_t)i != (size_t)e; ++i)
+        out << *i << std::endl << ' ';
+    return out << *i << ']' << std::endl;
 }
 
 
 template<size_t size, class T1>
-Array<size, Array<1, T1>> Array<size, T1>::T()
+Array<size, Array<1, T1>> Array<size, T1>::T() const
 {
     Array<size, Array<1, T1>> res;
     for (size_t i = 0; i < size; ++i)
@@ -319,7 +320,7 @@ Array<size, Array<1, T1>> Array<size, T1>::T()
 }
 
 template<size_t m, size_t n, class U>
-Array<n, Array<m, U>> Array<m, Array<n, U>>::T()
+Array<n, Array<m, U>> Array<m, Array<n, U>>::T() const
 {
     Array<n, Array<m, U>> res;
     for (size_t i = 0; i < n; ++i)
@@ -505,16 +506,16 @@ Array<m, Array<n, O>> Array<m, Array<n, U>>::apply_func(O (*func)(const U &))
 template<size_t n, class U, class O>
 Array<n, U> & i_operation(Array<n, U> &a, const Array<n, O> &b, U & (*func)(U &, const O &))
 {
-    for (size_t i = 0; i < n; ++i)
-        func(a.A[i], b.A[i]);
+    for (U* i1 = a.A, *i2 = b.A, *e = a.A + n; (size_t)i1 != (size_t)e; ++i1, ++i2)
+        func(*i1, *i2);
     return a;
 }
 
 template<size_t n, class U, typename O>
 Array<n, U> & i_scalar_operation(Array<n, U> &a, const O &b, U & (*func)(U &, const O &))
 {
-    for (size_t i = 0; i < n; ++i)
-        func(a.A[i], b);
+    for (U* i1 = a.A, *e = a.A + n; (size_t)i1 != (size_t)e; ++i1)
+        func(*i1, b);
     return a;
 }
 
@@ -522,10 +523,21 @@ template<size_t n, class U, class O>
 Array<n, U> operation(const Array<n, U> &a, const Array<n, O> &b, U (*func)(const U &, const O &))
 {
     Array<n, U> res;
-    for (size_t i = 0; i < n; ++i)
-        res.A[i] = func(a.A[i], b.A[i]);
+    O* i3 = b.A;
+    for (U* i1 = res.A, *i2 = a.A, *e = res.A + n; (size_t)i1 != (size_t)e; ++i1, ++i2, ++i3)
+        *i1 = func(*i2, *i3);
     return res;
 }
+
+template<size_t n, class U, typename O>
+Array<n, U> scalar_operation(const Array<n, U> &a, const O &b, U (*func)(const U &, const O &))
+{
+    Array<n, U> res;
+    for (U* i1 = res.A, *i2 = a.A, *e = res.A + n; (size_t)i1 != (size_t)e; ++i1, ++i2)
+        *i1 = func(*i2, b);
+    return res;
+}
+
 template <size_t n, class T>
 void Array<n, T>::write(std::ostream &out) const
 {
@@ -548,16 +560,6 @@ template<size_t m, size_t n, class U>
 void Array<m, Array<n, U>>::read(std::istream &in)
 {
     std::for_each(begin(), end(), [&in](Array<n, U> &a){ a.read(in); });
-}
-
-
-template<size_t n, class U, typename O>
-Array<n, U> scalar_operation(const Array<n, U> &a, const O &b, U (*func)(const U &, const O &))
-{
-    Array<n, U> res;
-    for (size_t i = 0; i < n; ++i)
-        res.A[i] = func(a.A[i], b);
-    return res;
 }
 
 template<size_t m, size_t n, class U> template<size_t l, size_t k>
