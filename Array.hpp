@@ -150,7 +150,8 @@ class Array<m, Array<n, U>>
     template<size_t k, class G, typename O>
     friend Array<k, G> & i_scalar_operation(Array<k, G> &, const O &, G & (*func)(G &, const O &));
     struct skip_init{ skip_init() {}};
-    Array(skip_init) {}
+    bool is_skipped_init;
+    Array(skip_init) {is_skipped_init = true;}
 public:
     constexpr static auto shape = std::tuple_cat(std::make_tuple(m), Array<n, U>::shape);
     Array();
@@ -206,6 +207,8 @@ public:
     template <size_t k>
     Array<m, Array<k, U>> easy_dot(const Array<n, Array<k, U>> &) const;
     template <class O, size_t l, size_t k, size_t p>
+    friend Array<l, Array<p, O>> easy_dot(const Array<l, Array<k, O>> &a, const Array<k, Array<p, O>> &b);
+    template <class O, size_t l, size_t k, size_t p>
     friend Array<l, Array<p, O>> dot(const Array<l, Array<k, O>> &a, const Array<k, Array<p, O>> &b);
     template <size_t k>
     Array<m, Array<k, U>> dot(const Array<n, Array<k, U>> &b) const;
@@ -252,56 +255,6 @@ public:
     citerator end() const {return citerator(A + m);}
 };
 
-template<size_t m, size_t n, class U> template <size_t k>
-Array<m, Array<k, U>> Array<m, Array<n, U>>::easy_dot(const Array<n, Array<k, U>> &b) const
-{
-    return easy_dot(*this, b);
-}
-
-template<size_t m, size_t n, class U> template <size_t k>
-Array<m, Array<k, U>> Array<m, Array<n, U>>::dot(const Array<n, Array<k, U>> &b) const
-{
-    return dot(*this, b);
-}
-
-template<class O, size_t m, size_t n, size_t k>
-Array<m, Array<k, O>> dot(const Array<m, Array<n, O>> &a, const Array<n, Array<k, O>> &b)
-{
-    constexpr bool is_small = ((n * m * k) < (64 * 64 * 64));
-    constexpr size_t smaller_n = (n >> 1) + (n & 1);
-    constexpr size_t smaller_k = (k >> 1) + (k & 1);
-    constexpr size_t smaller_m = (m >> 1) + (m & 1);
-    if (is_small)
-        return easy_dot(a, b);
-    auto a11 = a.template submatrix<smaller_m, smaller_n>(0, 0);
-    auto a12 = a.template submatrix<smaller_m, smaller_n>(0, smaller_n);
-    auto a21 = a.template submatrix<smaller_m, smaller_n>(smaller_m, 0);
-    auto a22 = a.template submatrix<smaller_m, smaller_n>(smaller_m, smaller_n);
-    auto b11 = b.template submatrix<smaller_n, smaller_k>(0, 0);
-    auto b12 = b.template submatrix<smaller_n, smaller_k>(0, smaller_k);
-    auto b21 = b.template submatrix<smaller_n, smaller_k>(smaller_n, 0);
-    auto b22 = b.template submatrix<smaller_n, smaller_k>(smaller_n, smaller_k);
-    auto p1 = dot(a11 + a22,b11 + b22);
-    auto p2 = dot(a21 + a22, b11);
-    auto p3 = dot(a11, b12 - b22);
-    auto p4 = dot(a22, b21 - b11);
-    auto p5 = dot(a11 + a12, b22);
-    auto p6 = dot(a21 - a11, b11 + b12);
-    auto p7 = dot(a12 - a22, b21 + b22);
-    Array<m, Array<k, O>> res;
-    size_t j;
-    size_t i = 0;
-    for (; i < smaller_m; ++i)
-        for (j = 0; j < smaller_k; ++j)
-        {
-            res[i][j] = p1[i][j] + p4[i][j] - p5[i][j] + p7[i][j];
-            res[i][j + smaller_k] = p3[i][j] + p5[i][j];
-            res[i + smaller_m][j] = p2[i][j] + p4[i][j];
-            res[i + smaller_m][j + smaller_k] = p1[i][j] - p2[i][j] + p3[i][j] + p6[i][j];
-        }
-    return res;
-}
-
 template<size_t fm, size_t fn, class fU>
 std::ostream & operator<<(std::ostream & out, const Array<fm, Array<fn, fU>> &b)
 {
@@ -338,12 +291,14 @@ Array<size, T1>::Array()
 template<size_t m, size_t n, class U>
 Array<m, Array<n, U>>::Array()
 {
+    is_skipped_init = false;
     A = new Array<n, U>[m];
 }
 
 template<size_t m, size_t n, class U>
 Array<m, Array<n, U>>::Array(const Array<m, Array<n, U>> &b)
 {
+    is_skipped_init = false;
     A = new Array<n, U>[m];
     std::copy(b.A, b.A + m, (char*)A);
 }
@@ -359,6 +314,7 @@ Array<size, T1>::Array(const Array<size, T1> &b)
 template<size_t m, size_t n, class U>
 Array<m, Array<n, U>>::Array(Array<m, Array<n, U>> &&b)
 {
+    is_skipped_init = b.is_skipped_init;
     A = b.A;
     b.A = NULL;
 }
@@ -388,6 +344,7 @@ Array<size, T1>::Array(T1 (*generator)())
 template<size_t m, size_t n, class U>
 Array<m, Array<n, U>>::Array(U (*generator)())
 {
+    is_skipped_init = false;
     A = new Array<n, U>[m];
     std::for_each(A, A + m, [generator](Array<n, U> &a) { a.generate(generator); });
 }
@@ -402,6 +359,7 @@ Array<size, T1>::Array(const O &b)
 template<size_t m, size_t n, class U> template <typename O>
 Array<m, Array<n, U>>::Array(const O &b)
 {
+    is_skipped_init = false;
     A = NULL;
     *this = b;
 }
@@ -409,7 +367,11 @@ Array<m, Array<n, U>>::Array(const O &b)
 template<size_t m, size_t n, class U>
 Array<m, Array<n, U>> & Array<m, Array<n, U>>::operator=(const Array<m, Array<n, U>> &b)
 {
-    delete[] A;
+    if (!is_skipped_init)
+        delete[] A;
+    else
+        delete A;
+    is_skipped_init = false;
     A = new Array<n, U>[m];
     std::copy(A, A + m, b.A);
     return *this;
@@ -429,7 +391,11 @@ Array<size, T1> & Array<size, T1>::operator=(const Array<size, T1> &b)
 template<size_t m, size_t n, class U>
 Array<m, Array<n, U>> & Array<m, Array<n, U>>::operator=(Array<m, Array<n, U>> &&b)
 {
-    delete[] A;
+    if (!is_skipped_init)
+        delete[] A;
+    else
+        delete A;
+    is_skipped_init = false;
     A = b.A;
     b.A = NULL;
     return *this;
@@ -456,7 +422,11 @@ Array<size, T1> & Array<size, T1>::operator=(const O &b)
 template<size_t m, size_t n, class U> template <typename O>
 Array<m, Array<n, U>> & Array<m, Array<n, U>>::operator=(const O &b)
 {
-    delete[] A;
+    if (!is_skipped_init)
+        delete[] A;
+    else
+        delete A;
+    is_skipped_init = false;
     A = new Array<n, U>[m];
     std::fill(A, A + m, b);
     return *this;
@@ -581,37 +551,25 @@ Array<l, Array<k, O>> submatrix_copy(const Array<fn, Array<fm, O>> &b, size_t x1
     return res;
 }
 
-template<size_t m, size_t n, class U> template<size_t l, size_t k>
-Array<l, Array<k, U>> Array<m, Array<n, U>>::submatrix_copy(size_t x1, size_t x2) const
-{
-    return submatrix_copy<l, k>(*this, x1, x2);
-}
-
-template <size_t l, size_t k, class O, size_t fn, size_t fm>
+template<size_t l, size_t k, class O, size_t fn, size_t fm>
 Array<l, Array<k, O>> submatrix(const Array<fn, Array<fm, O>> &b, size_t x1, size_t x2)
 {
     if (k + x2 > fm)
         return submatrix_copy<l, k>(b, x1, x2);
     typename Array<l, Array<k, O>>::skip_init s;
     Array<l, Array<k, O>> res(s);
-    res.A = (Array<k, O> *)::operator new(sizeof(Array<k, O>) * l);
+    res.A = (Array<k, O> *) ::operator new(sizeof(Array<k, O>) * l);
     Array<k, O> *i = res.A, *e = res.A + l;
-    Array<fm, O> * a = b.A + x1;
-    for (; (size_t)i != (size_t)e; ++i, ++a)
+    Array<fm, O> *a = b.A + x1;
+    for (; (size_t) i != (size_t) e; ++i, ++a)
     {
         i->A = a->A + x2;
-        if ((size_t)a - (size_t)b.A == fn - 1)
+        if ((size_t) a - (size_t) b.A == fn - 1)
             break;
     }
-    for (; (size_t)i != (size_t)e; ++i)
+    for (; (size_t) i != (size_t) e; ++i)
         *i = Array<k, O>(0);
     return res;
-}
-
-template<size_t m, size_t n, class U> template<size_t l, size_t k>
-Array<l, Array<k, U>> Array<m, Array<n, U>>::submatrix(size_t x1, size_t x2) const
-{
-    return submatrix(*this, x1, x2);
 }
 
 template<class U, size_t n, size_t k, size_t m>
@@ -626,6 +584,92 @@ Array<n, Array<m, U>> easy_dot(const Array<n, Array<k, U>> &a, const Array<k, Ar
                 res.A[i][j] += a.A[i][l] * b.A[l][j];
         }
     return res;
+}
+
+template <class O, size_t l, size_t k, size_t p>
+Array<l, Array<p, O>> dot(const Array<l, Array<k, O>> &a, const Array<k, Array<p, O>> &b)
+{
+    constexpr bool is_small = ((l * k * p) < (64 * 64 * 64));
+    constexpr size_t smaller_l = (l >> 1) + (l & 1);
+    constexpr size_t smaller_k = (k >> 1) + (k & 1);
+    constexpr size_t smaller_p = (p >> 1) + (p & 1);
+    if (is_small)
+        return easy_dot(a, b);
+    auto a11 = a.template submatrix<smaller_l, smaller_k>(0, 0);
+    auto a12 = a.template submatrix<smaller_l, smaller_k>(0, smaller_k);
+    auto a21 = a.template submatrix<smaller_l, smaller_k>(smaller_l, 0);
+    auto a22 = a.template submatrix<smaller_l, smaller_k>(smaller_l, smaller_k);
+    auto b11 = b.template submatrix<smaller_k, smaller_p>(0, 0);
+    auto b12 = b.template submatrix<smaller_k, smaller_p>(0, smaller_p);
+    auto b21 = b.template submatrix<smaller_k, smaller_p>(smaller_k, 0);
+    auto b22 = b.template submatrix<smaller_k, smaller_p>(smaller_k, smaller_p);
+    auto p1 = dot(a11 + a22,b11 + b22);
+    auto p2 = dot(a21 + a22, b11);
+    auto p3 = dot(a11, b12 - b22);
+    auto p4 = dot(a22, b21 - b11);
+    auto p5 = dot(a11 + a12, b22);
+    auto p6 = dot(a21 - a11, b11 + b12);
+    auto p7 = dot(a12 - a22, b21 + b22);
+    Array<l, Array<p, O>> res;
+    size_t j;
+    size_t i = 0;
+    for (; i < smaller_l; ++i)
+        for (j = 0; j < smaller_p; ++j)
+        {
+            res[i][j] = p1[i][j] + p4[i][j] - p5[i][j] + p7[i][j];
+            res[i][j + smaller_p] = p3[i][j] + p5[i][j];
+            res[i + smaller_l][j] = p2[i][j] + p4[i][j];
+            res[i + smaller_l][j + smaller_p] = p1[i][j] - p2[i][j] + p3[i][j] + p6[i][j];
+        }
+    return res;
+}
+
+template <class O, size_t l, size_t k, size_t p>
+Array<l, Array<p, O>> dot_wrapper(const Array<l, Array<k, O>> &a, const Array<k, Array<p, O>> &b)
+{
+    return dot(a, b);
+}
+
+template<size_t l, size_t k, class O, size_t fn, size_t fm>
+Array<l, Array<k, O>> submatrix_wrapper(const Array<fn, Array<fm, O>> &b, size_t x1, size_t x2)
+{
+    return submatrix<l, k>(b, x1, x2);
+}
+
+template <size_t l, size_t k, class O, size_t fn, size_t fm>
+Array<l, Array<k, O>> submatrix_copy_wrapper(const Array<fn, Array<fm, O>> &b, size_t x1, size_t x2)
+{
+    return submatrix_copy<l, k>(b, x1, x2);
+}
+
+template<class U, size_t n, size_t k, size_t m>
+Array<n, Array<m, U>> easy_dot_wrapper(const Array<n, Array<k, U>> &a, const Array<k, Array<m, U>> &b)
+{
+    return easy_dot(a, b);
+}
+
+template<size_t m, size_t n, class U> template<size_t l, size_t k>
+Array<l, Array<k, U>> Array<m, Array<n, U>>::submatrix(size_t x1, size_t x2) const
+{
+    return submatrix_wrapper<l, k>(*this, x1, x2);
+}
+
+template<size_t m, size_t n, class U> template <size_t k>
+Array<m, Array<k, U>> Array<m, Array<n, U>>::easy_dot(const Array<n, Array<k, U>> &b) const
+{
+    return easy_dot_wrapper(*this, b);
+}
+
+template<size_t m, size_t n, class U> template <size_t k>
+Array<m, Array<k, U>> Array<m, Array<n, U>>::dot(const Array<n, Array<k, U>> &b) const
+{
+    return dot_wrapper(*this, b);
+}
+
+template<size_t m, size_t n, class U> template<size_t l, size_t k>
+Array<l, Array<k, U>> Array<m, Array<n, U>>::submatrix_copy(size_t x1, size_t x2) const
+{
+    return submatrix_copy_wrapper<l, k>(*this, x1, x2);
 }
 
 template <size_t n, class U>
@@ -645,7 +689,10 @@ Array<size, T1>::~Array()
 template <size_t n, size_t m, class U>
 Array<n, Array<m, U>>::~Array()
 {
-    delete[] A;
+    if (!is_skipped_init)
+        delete[] A;
+    else
+        free(A);
 }
 
 #endif //C_ARRAY_H
